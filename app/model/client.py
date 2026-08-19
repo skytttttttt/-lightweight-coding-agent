@@ -1,0 +1,94 @@
+"""DeepSeek API Client。
+
+基于 OpenAI 兼容的 chat/completions 接口，直接解析 JSON，
+确保 reasoning_content（Thinking）在每轮 tool call 中完整保留、不丢失。
+
+模型固定为配置中的 DEEPSEEK_MODEL（默认 deepseek-v4-flash），
+绝不自行切换模型；模型不可用时停止并报告。
+"""
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass, field
+from typing import Any, Optional
+
+import httpx
+
+
+@dataclass
+class ToolCall:
+    id: str
+    name: str
+    arguments: dict
+
+
+@dataclass
+class ModelResponse:
+    content: Optional[str] = None
+    reasoning_content: Optional[str] = None
+    tool_calls: list[ToolCall] = field(default_factory=list)
+    finish_reason: Optional[str] = None
+
+
+class DeepSeekClient:
+    def __init__(self, api_key: str, base_url: str, model: str, timeout: float = 120.0):
+        if not api_key:
+            raise ValueError("缺少 DEEPSEEK_API_KEY")
+        self.api_key = api_key
+        self.base_url = base_url.rstrip("/")
+        self.model = model
+        self.timeout = timeout
+        self._client = httpx.Client(timeout=timeout)
+
+    def _endpoint(self) -> str:
+        # 兼容 base_url 已含 /v1 或需追加 /v1 两种情况
+        if self.base_url.endswith("/chat/completions"):
+            return self.base_url
+        if self.base_url.endswith("/v1"):
+            return f"{self.base_url}/chat/completions"
+        return f"{self.base_url}/v1/chat/completions"
+
+    def chat(self, messages: list[dict], tools: Optional[list[dict]] = None) -> ModelResponse:
+        payload: dict[str, Any] = {
+            "model": self.model,
+            "messages": messages,
+            "stream": False,
+        }
+        if tools:
+            payload["tools"] = tools
+            payload["tool_choice"] = "auto"
+
+        resp = self._client.post(self._endpoint(), headers={
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }, json=payload)
+        if resp.status_code != 200:
+            raise RuntimeError(
+                f"DeepSeek API 错误 status={resp.status_code}: {resp.text[:500]}"
+            )
+        data = resp.json()
+        return self._parse(data)
+
+    def _parse(self, data: dict) -> ModelResponse:
+        choice = data["choices"][0]
+        msg = choice.get("message", {})
+        tool_calls: list[ToolCall] = []
+        for tc in msg.get("tool_calls") or []:
+            try:
+                args = json.loads(tc["function"].get("arguments") or "{}")
+            except json.JSONDecodeError:
+                args = {"_raw": tc["function"].get("arguments", "")}
+            tool_calls.append(ToolCall(
+                id=tc.get("id", ""),
+                name=tc["function"]["name"],
+                arguments=args,
+            ))
+        return ModelResponse(
+            content=msg.get("content"),
+            reasoning_content=msg.get("reasoning_content"),
+            tool_calls=tool_calls,
+            finish_reason=choice.get("finish_reason"),
+        )
+
+    def close(self) -> None:
+        self._client.close()
