@@ -122,6 +122,7 @@ class AgentLoop:
             "stopped_by": result.stopped_by,
             "turns_used": result.turns_used,
             "repair_attempts": result.repair_attempts,
+            "error": result.error,
             "final_answer": result.final_answer,
             "reasoning_log": state.reasoning_log(),
             "messages": state.messages,

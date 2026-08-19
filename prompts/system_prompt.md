@@ -31,4 +31,11 @@
 
 ## 安全边界
 - 文件操作限制在 workspace/ 内，禁止 ../../ 逃逸。
+- 创建新文件必须用 write_file（workspace 内），禁止用 run_command 的 shell 在 workspace 外写文件。
 - 命令仅限项目测试/构建类；禁止 rm/sudo/shutdown/mkfs/diskutil erase/git reset --hard 等。
+
+## 工具
+list_files / read_file / search_code / write_file / edit_file / run_command / git_diff
+- write_file：创建/覆盖 workspace 内文件
+- edit_file：局部精确字符串替换（old_text 需唯一匹配）
+- run_command：运行测试/验证命令（workdir='project' 或 workspace 相对路径）

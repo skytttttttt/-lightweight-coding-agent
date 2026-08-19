@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -48,7 +49,10 @@ class DeepSeekClient:
             return f"{self.base_url}/chat/completions"
         return f"{self.base_url}/v1/chat/completions"
 
-    def chat(self, messages: list[dict], tools: Optional[list[dict]] = None) -> ModelResponse:
+    def chat(self, messages: list[dict], tools: Optional[list[dict]] = None,
+             max_retries: int = 2) -> ModelResponse:
+        """调用模型。网络瞬时故障（连接断开/超时/5xx）自动重试最多 max_retries 次；
+        认证或模型错误不重试，立即抛错。"""
         payload: dict[str, Any] = {
             "model": self.model,
             "messages": messages,
@@ -58,16 +62,33 @@ class DeepSeekClient:
             payload["tools"] = tools
             payload["tool_choice"] = "auto"
 
-        resp = self._client.post(self._endpoint(), headers={
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }, json=payload)
-        if resp.status_code != 200:
-            raise RuntimeError(
+        last_err: Exception | None = None
+        for attempt in range(max_retries + 1):
+            try:
+                resp = self._client.post(self._endpoint(), headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                }, json=payload)
+            except (httpx.TransportError, httpx.TimeoutException) as e:
+                last_err = e
+                if attempt < max_retries:
+                    time.sleep(1.5 * (attempt + 1))
+                    continue
+                raise RuntimeError(f"DeepSeek API 网络错误: {e}") from e
+
+            if resp.status_code == 200:
+                return self._parse(resp.json())
+            # 认证/模型/参数错误不重试
+            if resp.status_code in (401, 403, 404, 422):
+                raise RuntimeError(
+                    f"DeepSeek API 错误 status={resp.status_code}: {resp.text[:500]}"
+                )
+            last_err = RuntimeError(
                 f"DeepSeek API 错误 status={resp.status_code}: {resp.text[:500]}"
             )
-        data = resp.json()
-        return self._parse(data)
+            if attempt < max_retries:
+                time.sleep(1.5 * (attempt + 1))
+        raise last_err
 
     def _parse(self, data: dict) -> ModelResponse:
         choice = data["choices"][0]

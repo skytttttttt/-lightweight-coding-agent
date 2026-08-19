@@ -4,7 +4,7 @@ import pytest
 from app.security.sandbox import Sandbox
 from app.tools.command import run_command
 from app.tools.edit import edit_file
-from app.tools.files import list_files, read_file
+from app.tools.files import list_files, read_file, write_file
 from app.tools.git import git_diff
 from app.tools.search import search_code
 
@@ -50,6 +50,16 @@ def test_edit_file(env):
     r = edit_file(sb, "x.py", "alpha", "gamma")
     assert r.startswith("[ok]")
     assert f.read_text() == "gamma\nbeta\nother\n"
+
+
+def test_write_file(env):
+    project, sb = env
+    r = write_file(sb, "sub/new.py", "x = 1\n")
+    assert r.startswith("[ok]")
+    assert (project / "workspace" / "sub" / "new.py").read_text() == "x = 1\n"
+    r2 = write_file(sb, "../../escape.py", "x")
+    assert r2.startswith("[error]")
+    assert not (project / "escape.py").exists()
 
 
 def test_edit_ambiguous_rejected(env):

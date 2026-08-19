@@ -5,7 +5,7 @@
 
 ## 功能特性
 
-- **6 个工具**：`list_files` / `read_file` / `search_code` / `edit_file` / `run_command` / `git_diff`
+- **7 个工具**：`list_files` / `read_file` / `search_code` / `write_file` / `edit_file` / `run_command` / `git_diff`
 - **Sandbox 安全沙箱**：所有文件操作限制在 `workspace/` 内，拒绝 `../../` 路径逃逸
 - **Agent Loop**：最大 30 turns，完整保留每轮 `reasoning_content`（Thinking）与 `tool_calls`
 - **Repair 协议**：同一问题最多自动修复 2 次，连续失败自动停止
@@ -20,11 +20,11 @@ v4-flash-agent/
 │   ├── main.py            # CLI 入口 (python -m app.main "任务")
 │   ├── config.py          # 配置加载 (.env)
 │   ├── server.py          # API Server (FastAPI)
-│   ├── model/client.py    # DeepSeek API Client（保留 reasoning_content）
+│   ├── model/client.py    # DeepSeek API Client（保留 reasoning_content，带瞬时故障重试）
 │   ├── agent/             # loop.py / state.py / prompt.py
 │   ├── tools/             # registry / files / search / edit / command / git
 │   └── security/sandbox.py# 路径沙箱 + 命令黑名单
-├── tests/                 # pytest 测试（20 项）
+├── tests/                 # pytest 测试（21 项）
 ├── benchmarks/            # Benchmark 任务与结果
 ├── prompts/               # 系统提示词副本
 ├── workspace/             # Agent 可操作目录（沙箱根）

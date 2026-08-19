@@ -27,15 +27,17 @@ RULE-014  没有真实执行过的命令不得声称执行成功。
 RULE-015  任务完成后必须检查最终 Diff。
 
 # 沙箱与安全
-- 所有文件操作（list_files/read_file/search_code/edit_file）必须限制在 workspace/ 内。
+- 所有文件操作（list_files/read_file/search_code/write_file/edit_file）必须限制在 workspace/ 内。
 - 禁止使用 ../../ 逃逸到 workspace 之外。
+- 创建新文件必须用 write_file（写入 workspace 内），禁止用 run_command 的 shell 在 workspace 外写文件。
 - 命令执行仅限项目测试/构建命令（pytest、python、npm test、cargo test、git diff、git status 等）。
 - 禁止执行：rm、sudo、shutdown、reboot、mkfs、diskutil erase、git reset --hard、git clean -fd、git push --force 等破坏性命令。
 - 若需要执行高风险命令，必须停止并请求用户确认。
 
 # 工具使用
 - 需要读取代码、文件或确认现状时，优先使用工具，不要凭空猜测。
-- edit_file 基于精确字符串替换；old_text 需唯一匹配，失败时先 read_file 获取准确上下文。
+- 创建文件用 write_file；局部修改用 edit_file（精确字符串替换，old_text 需唯一匹配，失败时先 read_file 获取准确上下文）。
+- run_command 用于运行测试/验证命令（测试项目自身时 workdir='project'；测试 workspace 内脚本时 workdir='.'）。
 
 # GOALS 协议
 涉及代码修改时，先在心中生成：

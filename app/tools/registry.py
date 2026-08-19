@@ -55,7 +55,7 @@ class ToolRegistry:
 def build_registry(sandbox: Sandbox) -> ToolRegistry:
     from app.tools.command import run_command
     from app.tools.edit import edit_file
-    from app.tools.files import list_files, read_file
+    from app.tools.files import list_files, read_file, write_file
     from app.tools.git import git_diff
     from app.tools.search import search_code
 
@@ -104,6 +104,16 @@ def build_registry(sandbox: Sandbox) -> ToolRegistry:
             "replace_all": {"type": "boolean", "description": "匹配多处时是否全部替换"}},
             "required": ["path", "old_text", "new_text"]},
         fn=edit_file,
+    ))
+
+    registry.register(Tool(
+        name="write_file",
+        description="在 workspace 内创建新文件或覆盖已有文件的完整内容（配合 edit_file 用于局部修改）。禁止用于写 workspace 之外。",
+        parameters={"type": "object", "properties": {
+            "path": {"type": "string", "description": "文件路径（workspace 内）"},
+            "content": {"type": "string", "description": "文件完整内容"}},
+            "required": ["path", "content"]},
+        fn=write_file,
     ))
 
     registry.register(Tool(

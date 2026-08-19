@@ -28,6 +28,22 @@ def list_files(sandbox: Sandbox, path: str = ".") -> str:
     return "\n".join(lines) if lines else "(空目录)"
 
 
+def write_file(sandbox: Sandbox, path: str, content: str) -> str:
+    """在 workspace 内创建/覆盖文本文件。"""
+    try:
+        target = sandbox.resolve(path)
+    except SandboxError as e:
+        return f"[error] {e}"
+    if target.exists() and not target.is_file():
+        return f"[error] 目标不是文件: {path}"
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+    except OSError as e:
+        return f"[error] 写入失败: {e}"
+    return f"[ok] 已写入 {len(content)} 字符 -> {path}"
+
+
 def read_file(sandbox: Sandbox, path: str, offset: int = 0, limit: int = 200) -> str:
     """读取文本文件，支持 offset/limit 分页。"""
     try:
