@@ -1,0 +1,9 @@
+{
+  "expected_files": [
+    "games/arena/engine.py"
+  ],
+  "tests": [
+    "games/tests/__init__.py",
+    "games/tests/test_engine.py"
+  ]
+}

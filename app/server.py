@@ -11,6 +11,8 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app.agent.loop import AgentLoop
@@ -19,7 +21,9 @@ from app.model.client import DeepSeekClient
 from app.security.sandbox import default_sandbox
 from app.tools.registry import build_registry
 
-app = FastAPI(title="V4-Flash Coding Agent", version="1.0.0")
+app = FastAPI(title="V4-Flash Coding Agent", version="1.1.0")
+
+WEB_DIR = get_config().project_root / "web"
 
 
 class RunRequest(BaseModel):
@@ -35,6 +39,8 @@ class RunResponse(BaseModel):
     final_answer: str
     error: Optional[str] = None
     log_path: Optional[str] = None
+    reasoning_log: Optional[str] = None
+    trace: Optional[list] = None
 
 
 def _build_runner():
@@ -69,9 +75,21 @@ def agent_run(req: RunRequest) -> RunResponse:
         final_answer=result.final_answer,
         error=result.error or None,
         log_path=result.log_path,
+        reasoning_log=result.reasoning_log,
+        trace=result.trace,
     )
 
 
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "model": get_config().model}
+
+
+@app.get("/", include_in_schema=False)
+def index() -> FileResponse:
+    return FileResponse(WEB_DIR / "index.html")
+
+
+# 静态资源（Web 页面）
+if WEB_DIR.is_dir():
+    app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")

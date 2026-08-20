@@ -23,6 +23,7 @@ class AgentResult:
     log_path: str = ""
     completed: bool = False
     reasoning_log: str = ""
+    trace: list = field(default_factory=list)  # 每轮执行轨迹（推理/工具调用/工具结果）
 
 
 class AgentLoop:
@@ -116,6 +117,24 @@ class AgentLoop:
         path = self.log_dir / f"run_{ts}.json"
         reasoning = state.reasoning_log()
         result.reasoning_log = reasoning
+        # 导出每轮执行轨迹（推理 + 工具调用 + 工具结果），供 Web 页面展示
+        result.trace = [
+            {
+                "turn": i,
+                "content": turn.assistant_content,
+                "reasoning": turn.reasoning_content,
+                "tool_calls": [
+                    {"name": tc["name"], "arguments": tc.get("arguments", "{}")}
+                    for tc in turn.tool_calls
+                ],
+                "tool_results": [
+                    {"name": tr["name"], "output": tr["output"]}
+                    for tr in turn.tool_results
+                ],
+                "finish_reason": turn.finish_reason,
+            }
+            for i, turn in enumerate(state.turns, start=1)
+        ]
         payload = {
             "task": result.task,
             "completed": result.completed,

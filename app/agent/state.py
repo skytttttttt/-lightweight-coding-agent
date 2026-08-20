@@ -33,6 +33,10 @@ class AgentState:
     def add_assistant(self, turn: Turn) -> None:
         self.turns.append(turn)
         msg: dict[str, Any] = {"role": "assistant", "content": turn.assistant_content}
+        # P0-2 修复：将 reasoning_content 写入下一轮 messages，
+        # 确保上一轮推理真正参与下一轮 API 请求（DeepSeek API 接受该字段回传）
+        if turn.reasoning_content:
+            msg["reasoning_content"] = turn.reasoning_content
         if turn.tool_calls:
             msg["tool_calls"] = [
                 {

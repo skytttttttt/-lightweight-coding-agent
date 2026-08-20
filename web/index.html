@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>V4-Flash Coding Agent</title>
+<style>
+  :root {
+    --bg: #0f1216;
+    --panel: #171b22;
+    --panel-2: #1e242e;
+    --border: #2a323e;
+    --text: #e6ebf2;
+    --muted: #8b96a5;
+    --accent: #4f8cff;
+    --accent-2: #22c55e;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --code-bg: #0b0e13;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.6;
+    min-height: 100vh;
+  }
+  .container { max-width: 900px; margin: 0 auto; padding: 32px 20px 64px; }
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: 12px; }
+  header h1 { font-size: 22px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+  .logo { width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(135deg, var(--accent), #7c5cff); display: inline-flex; align-items: center; justify-content: center; font-size: 15px; color: #fff; }
+  .health { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); background: var(--panel); border: 1px solid var(--border); padding: 6px 12px; border-radius: 999px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+  .dot.ok { background: var(--accent-2); box-shadow: 0 0 8px var(--accent-2); }
+  .dot.err { background: var(--danger); }
+  .dot.load { background: var(--warn); animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity: 0.3; } }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; }
+  .panel h2 { font-size: 15px; font-weight: 600; margin-bottom: 14px; color: var(--text); }
+  textarea {
+    width: 100%; min-height: 96px; background: var(--code-bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px;
+    resize: vertical; outline: none;
+  }
+  textarea:focus { border-color: var(--accent); }
+  .row { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+  button {
+    background: var(--accent); color: #fff; border: none; border-radius: 8px;
+    padding: 10px 22px; font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: opacity .15s, transform .05s;
+  }
+  button:hover { opacity: .9; }
+  button:active { transform: translateY(1px); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .hint { font-size: 12px; color: var(--muted); }
+  .spinner {
+    width: 15px; height: 15px; border: 2px solid var(--border); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .stat { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; }
+  .stat .k { font-size: 12px; color: var(--muted); }
+  .stat .v { font-size: 15px; font-weight: 600; margin-top: 2px; word-break: break-all; }
+  .badge { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; }
+  .badge.ok { background: rgba(34,197,94,.15); color: var(--accent-2); }
+  .badge.bad { background: rgba(239,68,68,.15); color: var(--danger); }
+  .badge.warn { background: rgba(245,158,11,.15); color: var(--warn); }
+  .trace { display: flex; flex-direction: column; gap: 12px; }
+  .tcard { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--panel-2); }
+  .thead { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--panel); cursor: pointer; user-select: none; font-size: 13px; font-weight: 600; }
+  .thead .arrow { transition: transform .15s; font-size: 11px; color: var(--muted); }
+  .tcard.open .thead .arrow { transform: rotate(90deg); }
+  .tnum { color: var(--accent); }
+  .tbody { display: none; padding: 12px 14px; }
+  .tcard.open .tbody { display: block; }
+  .block { margin-bottom: 12px; }
+  .block:last-child { margin-bottom: 0; }
+  .block .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-bottom: 6px; font-weight: 600; }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px; white-space: pre-wrap; word-break: break-word; color: var(--text); overflow-x: auto;
+  }
+  .tool { margin-bottom: 8px; }
+  .tool .tname { color: var(--accent-2); font-weight: 600; font-size: 13px; }
+  .tool .targs { color: var(--muted); font-size: 12px; font-family: ui-monospace, Menlo, monospace; word-break: break-all; }
+  .res { color: var(--warn); font-size: 12px; white-space: pre-wrap; word-break: break-word; }
+  .final { background: linear-gradient(135deg, rgba(79,140,255,.08), rgba(124,92,255,.08)); border: 1px solid var(--accent); }
+  .final .lbl { color: var(--accent); }
+  .error { border: 1px solid var(--danger); }
+  .error .lbl { color: var(--danger); }
+  .muted { font-size: 12px; color: var(--muted); word-break: break-all; }
+  .empty { color: var(--muted); font-size: 14px; text-align: center; padding: 24px 0; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1><span class="logo">V4</span> V4-Flash Coding Agent</h1>
+    <div class="health" id="health">
+      <span class="dot" id="healthDot"></span>
+      <span id="healthText">检测中…</span>
+    </div>
+  </header>
+
+  <div class="panel">
+    <h2>编程任务</h2>
+    <textarea id="task" placeholder="例如：在 workspace 目录中创建一个 Python 脚本 hello.py，打印「Hello, V4-Flash!」，并运行测试验证。"></textarea>
+    <div class="row">
+      <button id="runBtn">运行 Agent</button>
+      <div class="spinner" id="spinner" style="display:none;"></div>
+      <span class="hint" id="runHint"></span>
+    </div>
+  </div>
+
+  <div class="panel" id="resultPanel" style="display:none;">
+    <h2>执行结果</h2>
+    <div class="summary" id="summary"></div>
+    <div class="block">
+      <div class="lbl">最终答案</div>
+      <pre class="final" id="finalAnswer"></pre>
+    </div>
+    <div class="block" id="errorBlock" style="display:none;">
+      <div class="lbl">错误信息</div>
+      <pre class="error" id="errorMsg"></pre>
+    </div>
+    <div class="block">
+      <div class="lbl">执行轨迹（点击展开）</div>
+      <div class="trace" id="trace"></div>
+    </div>
+    <div class="block">
+      <div class="lbl">运行日志</div>
+      <div class="muted" id="logPath"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+async function checkHealth() {
+  const dot = $("healthDot"), txt = $("healthText");
+  dot.className = "dot load";
+  try {
+    const r = await fetch("/health", { cache: "no-store" });
+    const data = await r.json();
+    if (r.ok && data.status === "ok") {
+      dot.className = "dot ok";
+      txt.textContent = "服务正常 · " + (data.model || "deepseek-v4-flash");
+    } else {
+      dot.className = "dot err";
+      txt.textContent = "服务异常";
+    }
+  } catch (e) {
+    dot.className = "dot err";
+    txt.textContent = "无法连接 API 服务";
+  }
+}
+
+function esc(s) {
+  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function renderTrace(trace) {
+  const wrap = $("trace");
+  if (!trace || !trace.length) {
+    wrap.innerHTML = '<div class="empty">无执行轨迹</div>';
+    return;
+  }
+  wrap.innerHTML = trace.map((t, idx) => {
+    const reasoning = t.reasoning ? `
+      <div class="block"><div class="lbl">推理 / Thinking</div><pre>${esc(t.reasoning)}</pre></div>` : "";
+    const content = t.content ? `
+      <div class="block"><div class="lbl">回复</div><pre>${esc(t.content)}</pre></div>` : "";
+    const calls = (t.tool_calls || []).map(c => `
+      <div class="tool"><span class="tname">▶ ${esc(c.name)}</span>
+      <div class="targs">${esc(c.arguments)}</div></div>`).join("");
+    const results = (t.tool_results || []).map(tr => `
+      <div class="tool"><span class="tname">${esc(tr.name)} →</span>
+      <pre class="res">${esc(tr.output)}</pre></div>`).join("");
+    const tools = (calls || results) ? `
+      <div class="block"><div class="lbl">工具调用</div>${calls}${results}</div>` : "";
+    return `
+      <div class="tcard${idx === 0 ? " open" : ""}" id="tc${idx}">
+        <div class="thead" onclick="document.getElementById('tc${idx}').classList.toggle('open')">
+          <span class="arrow">▶</span><span class="tnum">Turn ${t.turn}</span>
+          ${t.tool_calls && t.tool_calls.length ? `<span class="badge warn">${t.tool_calls.length} 工具</span>` : '<span class="badge ok">完成</span>'}
+        </div>
+        <div class="tbody">${reasoning}${content}${tools}</div>
+      </div>`;
+  }).join("");
+}
+
+async function run() {
+  const task = $("task").value.trim();
+  if (!task) { alert("请输入任务描述"); return; }
+  const btn = $("runBtn"), spinner = $("spinner");
+  btn.disabled = true; spinner.style.display = "inline-block";
+  $("runHint").textContent = "Agent 正在执行，请稍候…";
+  $("resultPanel").style.display = "none";
+  try {
+    const r = await fetch("/v1/agent/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ task }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      $("resultPanel").style.display = "block";
+      $("summary").innerHTML = `<div class="stat"><div class="k">状态</div><div class="v"><span class="badge bad">请求失败</span></div></div>`;
+      $("finalAnswer").textContent = "";
+      $("errorMsg").textContent = data.detail || ("HTTP " + r.status);
+      $("errorBlock").style.display = "block";
+      $("trace").innerHTML = '<div class="empty">无执行轨迹</div>';
+      $("logPath").textContent = "";
+    } else {
+      renderResult(data);
+    }
+  } catch (e) {
+    $("resultPanel").style.display = "block";
+    $("summary").innerHTML = `<div class="stat"><div class="k">状态</div><div class="v"><span class="badge bad">网络错误</span></div></div>`;
+    $("finalAnswer").textContent = "";
+    $("errorMsg").textContent = String(e);
+    $("errorBlock").style.display = "block";
+    $("trace").innerHTML = '<div class="empty">无执行轨迹</div>';
+    $("logPath").textContent = "";
+  } finally {
+    btn.disabled = false; spinner.style.display = "none";
+    $("runHint").textContent = "";
+  }
+}
+
+function renderResult(d) {
+  $("resultPanel").style.display = "block";
+  const badge = d.completed
+    ? '<span class="badge ok">完成</span>'
+    : d.stopped_by === "repair_limit"
+      ? '<span class="badge bad">修复失败</span>'
+      : '<span class="badge warn">' + esc(d.stopped_by) + '</span>';
+  $("summary").innerHTML = `
+    <div class="stat"><div class="k">状态</div><div class="v">${badge}</div></div>
+    <div class="stat"><div class="k">执行轮次</div><div class="v">${d.turns_used}</div></div>
+    <div class="stat"><div class="k">停止原因</div><div class="v">${esc(d.stopped_by)}</div></div>
+    <div class="stat"><div class="k">自动修复</div><div class="v">${d.repair_attempts}</div></div>`;
+  $("finalAnswer").textContent = d.final_answer || "(无内容)";
+  $("errorMsg").textContent = d.error || "";
+  $("errorBlock").style.display = d.error ? "block" : "none";
+  renderTrace(d.trace);
+  $("logPath").textContent = d.log_path || "";
+}
+
+$("runBtn").addEventListener("click", run);
+$("task").addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") run();
+});
+checkHealth();
+</script>
+</body>
+</html>

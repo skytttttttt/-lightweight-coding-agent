@@ -1,0 +1,8 @@
+{
+  "expected_files": [
+    "formatter.py"
+  ],
+  "tests": [
+    "tests/test_formatter.py"
+  ]
+}

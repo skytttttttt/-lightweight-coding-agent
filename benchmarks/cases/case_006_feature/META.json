@@ -1,0 +1,8 @@
+{
+  "expected_files": [
+    "word_counter.py"
+  ],
+  "tests": [
+    "tests/test_word_counter.py"
+  ]
+}

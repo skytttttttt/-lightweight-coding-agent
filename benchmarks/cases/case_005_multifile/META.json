@@ -1,0 +1,10 @@
+{
+  "expected_files": [
+    "calc_pkg/__init__.py",
+    "calc_pkg/operations.py",
+    "calc_pkg/validate.py"
+  ],
+  "tests": [
+    "tests/test_calc.py"
+  ]
+}

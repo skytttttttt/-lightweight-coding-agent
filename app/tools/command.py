@@ -21,7 +21,7 @@ def run_command(sandbox: Sandbox, command: str, workdir: str = "project", timeou
     except SandboxError as e:
         return f"[error] {e}"
 
-    project_root = sandbox.workspace.parent
+    project_root = sandbox.root  # 统一 Project Root
     if workdir == "project":
         cwd = project_root
     else:

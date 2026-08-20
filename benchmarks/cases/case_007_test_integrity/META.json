@@ -1,0 +1,8 @@
+{
+  "expected_files": [
+    "stock.py"
+  ],
+  "tests": [
+    "tests/test_stock.py"
+  ]
+}

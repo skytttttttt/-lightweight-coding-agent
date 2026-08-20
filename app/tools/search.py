@@ -13,6 +13,9 @@ from app.security.sandbox import Sandbox, SandboxError
 # 默认跳过的目录
 SKIP_DIRS = {".git", ".venv", "__pycache__", "node_modules", "logs", ".pytest_cache"}
 
+# 敏感文件（内容含密钥，禁止搜索/读取）
+SKIP_FILES = {".env"}
+
 DEFAULT_PATTERNS = ["*.py", "*.md", "*.txt", "*.json", "*.yaml", "*.yml", "*.toml",
                     "*.ini", "*.cfg", "*.sh", "*.html", "*.css", "*.js", "*.ts"]
 
@@ -41,11 +44,13 @@ def search_code(sandbox: Sandbox, query: str, path: str = ".", file_patterns: li
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
         for fname in filenames:
+            if fname in SKIP_FILES:
+                continue
             if not _matches(pats, fname):
                 continue
             fpath = Path(dirpath) / fname
             try:
-                rel = fpath.relative_to(sandbox.workspace)
+                rel = fpath.relative_to(sandbox.root)
                 with open(fpath, "r", encoding="utf-8", errors="replace") as fh:
                     for lineno, line in enumerate(fh, start=1):
                         check = line if case_sensitive else line.lower()

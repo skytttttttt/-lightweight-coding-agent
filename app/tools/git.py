@@ -13,7 +13,7 @@ MAX_DIFF_CHARS = 12000
 
 
 def _git(sandbox: Sandbox, args: list[str], timeout: int = 30) -> str:
-    cwd = sandbox.workspace.parent  # 项目根
+    cwd = sandbox.root  # 统一 Project Root
     try:
         proc = subprocess.run(["git"] + args, cwd=str(cwd), capture_output=True,
                               text=True, timeout=timeout)

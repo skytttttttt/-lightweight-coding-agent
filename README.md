@@ -1,3 +1,16 @@
+---
+AIGC:
+    Label: "1"
+    ContentProducer: 001191440300708461136T1XGW3
+    ProduceID: 6c346b738202fe25c8b31fee4a61768d_0214e6209bca11f19bec525400826444
+    ReservedCode1: H/2dvPsMrkUkGhHB9z9epXw7j1QlcYyN9ClliRV52wKJ6gfEa4Sg9g4qonmj3oy+bklSDZaksVCapJOEaf8zBErQmI91tyLjIgr2BxaMwCmbmzM76vaKVThGVnkRz3LDZMGw3jG/lXD1iOvivYkIDOiFHMmpjRpieqt7HmzO0BJkhlNFcJ4eylWlpU0=
+    ContentPropagator: 001191440300708461136T1XGW3
+    PropagateID: 6c346b738202fe25c8b31fee4a61768d_0214e6209bca11f19bec525400826444
+    ReservedCode2: H/2dvPsMrkUkGhHB9z9epXw7j1QlcYyN9ClliRV52wKJ6gfEa4Sg9g4qonmj3oy+bklSDZaksVCapJOEaf8zBErQmI91tyLjIgr2BxaMwCmbmzM76vaKVThGVnkRz3LDZMGw3jG/lXD1iOvivYkIDOiFHMmpjRpieqt7HmzO0BJkhlNFcJ4eylWlpU0=
+---
+
+
+
 # V4-Flash Coding Agent
 
 运行于 macOS + Python 的自主 Coding Agent，核心模型 **DeepSeek V4-Flash**。
@@ -11,6 +24,7 @@
 - **Repair 协议**：同一问题最多自动修复 2 次，连续失败自动停止
 - **GOALS 协议**：修改 2 个及以上文件时先输出计划
 - **CLI 与 API 双入口**
+- **可视化 Web 页面**：浏览器中输入任务即可运行 Agent，实时展示执行轨迹与最终结果
 
 ## 项目结构
 
@@ -27,6 +41,7 @@ v4-flash-agent/
 ├── tests/                 # pytest 测试（21 项）
 ├── benchmarks/            # Benchmark 任务与结果
 ├── prompts/               # 系统提示词副本
+├── web/index.html         # 可视化 Web 页面（挂载于 API Server）
 ├── workspace/             # Agent 可操作目录（沙箱根）
 ├── logs/                  # 运行日志（含每轮 reasoning）
 ├── .env.example           # 环境变量模板
@@ -85,6 +100,28 @@ curl -X POST http://127.0.0.1:8000/v1/agent/run \
 curl http://127.0.0.1:8000/health   # 健康检查
 ```
 
+### Web 页面
+
+启动 API Server 后（同上命令），浏览器直接访问：
+
+```bash
+# 启动（挂载 Web 页面）
+source .venv/bin/activate
+uvicorn app.server:app --host 0.0.0.0 --port 8000
+
+# 访问
+open http://127.0.0.1:8000
+```
+
+页面功能：
+
+- **健康检查**：顶部徽章实时显示 API 服务与模型状态（`GET /health`）
+- **任务输入**：在文本框中输入编程任务，点击「运行 Agent」（或 `Cmd/Ctrl + Enter`）调用 `POST /v1/agent/run`
+- **执行过程**：按 Turn 折叠展示每轮推理（Thinking）、回复与工具调用明细（名称 / 参数 / 执行结果）
+- **最终结果**：展示完成状态、执行轮次、停止原因、自动修复次数、最终答案与运行日志路径
+
+页面为独立静态文件（`web/index.html`），已随 API Server 自动挂载，无需额外配置。
+
 ## 测试
 
 ```bash
@@ -104,3 +141,5 @@ python benchmarks/benchmark.py
 - 文件操作强制限定在 `workspace/` 内，`../../` 逃逸会被拒绝（如 `../../etc/passwd`）
 - 命令黑名单：`rm`、`sudo`、`shutdown`、`reboot`、`mkfs`、`diskutil erase`、`git reset --hard`、`git clean -fd`、`git push --force` 等一律拒绝
 - 模型固定为 `deepseek-v4-flash`，模型不可用时停止并报告，绝不自行切换
+*（内容由AI生成，仅供参考）*
+*（内容由AI生成，仅供参考）*
