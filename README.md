@@ -2,144 +2,161 @@
 AIGC:
     Label: "1"
     ContentProducer: 001191440300708461136T1XGW3
-    ProduceID: 6c346b738202fe25c8b31fee4a61768d_0214e6209bca11f19bec525400826444
-    ReservedCode1: H/2dvPsMrkUkGhHB9z9epXw7j1QlcYyN9ClliRV52wKJ6gfEa4Sg9g4qonmj3oy+bklSDZaksVCapJOEaf8zBErQmI91tyLjIgr2BxaMwCmbmzM76vaKVThGVnkRz3LDZMGw3jG/lXD1iOvivYkIDOiFHMmpjRpieqt7HmzO0BJkhlNFcJ4eylWlpU0=
+    ProduceID: 6c346b738202fe25c8b31fee4a61768d_1e090710a26d11f193c6525400f8a581
+    ReservedCode1: Yi6oRhGEeLFqpxG/lTa7iuSMP39fseQ8vTPgdBh6sOfw5lI2DWRVSK0jxJ+ngYD9FROdX18nevincOcxQXk3v8Sgwsnsf/QbnEQDyuumTwx5XZxaljCtuRWQOxngXSbdBXpPNX+rUBfX6Jsn/Bc1Mrs0bKwrWBBGiEvWKnDBoY7XUzPBtLrqZW8EUmY=
     ContentPropagator: 001191440300708461136T1XGW3
-    PropagateID: 6c346b738202fe25c8b31fee4a61768d_0214e6209bca11f19bec525400826444
-    ReservedCode2: H/2dvPsMrkUkGhHB9z9epXw7j1QlcYyN9ClliRV52wKJ6gfEa4Sg9g4qonmj3oy+bklSDZaksVCapJOEaf8zBErQmI91tyLjIgr2BxaMwCmbmzM76vaKVThGVnkRz3LDZMGw3jG/lXD1iOvivYkIDOiFHMmpjRpieqt7HmzO0BJkhlNFcJ4eylWlpU0=
+    PropagateID: 6c346b738202fe25c8b31fee4a61768d_1e090710a26d11f193c6525400f8a581
+    ReservedCode2: Yi6oRhGEeLFqpxG/lTa7iuSMP39fseQ8vTPgdBh6sOfw5lI2DWRVSK0jxJ+ngYD9FROdX18nevincOcxQXk3v8Sgwsnsf/QbnEQDyuumTwx5XZxaljCtuRWQOxngXSbdBXpPNX+rUBfX6Jsn/Bc1Mrs0bKwrWBBGiEvWKnDBoY7XUzPBtLrqZW8EUmY=
 ---
-
-
 
 # V4-Flash Coding Agent
 
-运行于 macOS + Python 的自主 Coding Agent，核心模型 **DeepSeek V4-Flash**。
-用户输入编程任务后，Agent 自动完成：检查项目 → 搜索代码 → 读取文件 → 制定修改方案 → 修改代码 → 运行测试 → 分析失败 → 自动修复（最多 2 次）→ 重新验证 → 检查 Git Diff → 输出最终结果。
+A local-first AI coding agent that runs entirely on your own machine. You open (or upload) a project folder, give the agent a task, and it reads, edits, and tests the code inside **that project only** — powered by the DeepSeek-compatible chat completion API.
 
-## 功能特性
+> No cloud sync. No telemetry. No background data collection. Your project files never leave your computer unless you choose to call an external API yourself.
 
-- **7 个工具**：`list_files` / `read_file` / `search_code` / `write_file` / `edit_file` / `run_command` / `git_diff`
-- **Sandbox 安全沙箱**：所有文件操作限制在 `workspace/` 内，拒绝 `../../` 路径逃逸
-- **Agent Loop**：最大 30 turns，完整保留每轮 `reasoning_content`（Thinking）与 `tool_calls`
-- **Repair 协议**：同一问题最多自动修复 2 次，连续失败自动停止
-- **GOALS 协议**：修改 2 个及以上文件时先输出计划
-- **CLI 与 API 双入口**
-- **可视化 Web 页面**：浏览器中输入任务即可运行 Agent，实时展示执行轨迹与最终结果
+---
 
-## 项目结构
+## What is it?
+
+V4-Flash Coding Agent is a desktop-style web workspace with:
+
+- A **file explorer** that always mirrors the real active project on disk.
+- A **Git panel** with live status, diffs and change tracking.
+- An **Agent runner** that streams its reasoning/tool calls live (SSE) into a timeline.
+- A **plan / tools / tests / verification** panel driven entirely by real backend data.
+- A **local Python server** that hosts the web UI, the Agent loop, and all file/git/command operations inside a sandbox.
+
+## What can it do?
+
+- Load a local folder (via browser File System Access API, or by uploading).
+- Run an agent that plans, searches, reads, edits files, runs commands, runs tests, and checks git status — all scoped to the active project.
+- Visualize the full agent run: plan steps, tool calls, file changes, test results, timeline events.
+- Support non-Git projects gracefully (Git shows `Not a Git repository`, everything else keeps working).
+- Manage multiple imported projects, each stored under `workspace/projects/<project-id>/`, and switch between them.
+
+## Architecture
 
 ```
-v4-flash-agent/
-├── app/
-│   ├── main.py            # CLI 入口 (python -m app.main "任务")
-│   ├── config.py          # 配置加载 (.env)
-│   ├── server.py          # API Server (FastAPI)
-│   ├── model/client.py    # DeepSeek API Client（保留 reasoning_content，带瞬时故障重试）
-│   ├── agent/             # loop.py / state.py / prompt.py
-│   ├── tools/             # registry / files / search / edit / command / git
-│   └── security/sandbox.py# 路径沙箱 + 命令黑名单
-├── tests/                 # pytest 测试（21 项）
-├── benchmarks/            # Benchmark 任务与结果
-├── prompts/               # 系统提示词副本
-├── web/index.html         # 可视化 Web 页面（挂载于 API Server）
-├── workspace/             # Agent 可操作目录（沙箱根）
-├── logs/                  # 运行日志（含每轮 reasoning）
-├── .env.example           # 环境变量模板
-└── requirements.txt
+Local Browser
+      │
+      │ HTTP / SSE
+      ▼
+Local Python Server
+      │
+      ├── Agent            (prompt / loop / state)
+      ├── Tools            (command / file / git / search / edit)
+      ├── Sandbox          (path boundary for every operation)
+      ├── Project Manager  (active project, upload validation)
+      ├── File API         (/api/files, /api/files/upload, /api/files/delete)
+      ├── Git API          (/api/git/status, /api/git/diff, ...)
+      └── Model API        (DeepSeek-compatible chat completions)
+              │
+              ▼
+        Your API Provider
 ```
 
-## 安装
+All agent execution happens on **your own computer**. The server binds to `127.0.0.1` by default so nothing is exposed to your local network.
+
+## Requirements
+
+- **Python 3.11+** (tested on 3.14)
+- **Git** (optional — the UI degrades gracefully if missing or if the project is not a Git repository)
+- A modern browser with ES2020+ support (Chrome/Edge for best support of File System Access API)
+- A **DeepSeek-compatible API key** (or any OpenAI-compatible endpoint)
+
+## Installation
 
 ```bash
-cd ~/v4-flash-agent
+git clone <your-fork-or-repo-url> v4-flash-agent
+cd v4-flash-agent
+
+# (recommended) create a virtual environment
 python3 -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+
 pip install -r requirements.txt
 ```
 
-## 配置
+## Configuration
+
+Copy the example env file and fill in your API key:
 
 ```bash
 cp .env.example .env
-# 编辑 .env 填入真实 Key
+# edit .env, set at least DEEPSEEK_API_KEY
 ```
 
-`.env` 格式：
-
-```
-DEEPSEEK_API_KEY=你的Key
+```dotenv
+# .env
+DEEPSEEK_API_KEY=sk-...            # required to run the Agent
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 DEEPSEEK_MODEL=deepseek-v4-flash
+HOST=127.0.0.1                    # default: loopback only
+PORT=8000                         # set 0 for an auto-selected free port
 ```
 
-安全说明：API Key 仅存于 `.env`，已被 `.gitignore` 忽略，绝不会写入代码、Git、日志或输出给用户。
+`.env` is git-ignored. **Never commit a real API key.**
 
-## 使用
-
-### CLI
+## Run
 
 ```bash
-source .venv/bin/activate
-python -m app.main "修复这个项目的登录 Bug"
+python run.py
 ```
 
-### API Server
+On start you will see an environment check (Python / Git / Model API), and then:
 
-```bash
-source .venv/bin/activate
-uvicorn app.server:app --host 0.0.0.0 --port 8000
+```
+V4-Flash Coding Agent
+Server running at:
+  http://127.0.0.1:8000
 ```
 
-调用：
+Open the printed URL in your browser. If the default port is busy, `run.py` fails with a clear error — set `PORT=0` to auto-pick a free port (the actual URL is printed for you).
 
-```bash
-curl -X POST http://127.0.0.1:8000/v1/agent/run \
-  -H "Content-Type: application/json" \
-  -d '{"task": "在 workspace 中创建 hello.py"}'
+## Open Project
 
-curl http://127.0.0.1:8000/health   # 健康检查
-```
+- **Open Folder (Mode A — recommended):** on browsers with File System Access API (Chrome/Edge), click **Open Folder**, pick any local directory, and the agent works directly against that directory.
+- **Upload Folder / Upload Files (Mode B — import):** works in every browser. Files are safely imported into `workspace/projects/<project-id>/` by the backend after path validation. The display name and the physical folder are separated — you can name your project `My Cool Project` and it is stored under a sanitized id.
 
-### Web 页面
+If a browser does not support direct folder access, the UI tells you to use **Upload Folder** instead.
 
-启动 API Server 后（同上命令），浏览器直接访问：
+## Run Agent
 
-```bash
-# 启动（挂载 Web 页面）
-source .venv/bin/activate
-uvicorn app.server:app --host 0.0.0.0 --port 8000
+1. Make sure a project is loaded (File Explorer shows its files).
+2. Type a task in the input box, e.g. `Add a function that returns the sum of two integers and add a test for it`.
+3. Press **Run**. Watch the timeline stream the agent's plan, tool calls, file edits, command output, test results and verification — all real backend events.
+4. Press **Stop** at any time to cancel the running session.
 
-# 访问
-open http://127.0.0.1:8000
-```
+## Security Model
 
-页面功能：
+- **Loopback only:** server binds to `127.0.0.1` unless you explicitly set `HOST=0.0.0.0`.
+- **Sandbox boundary:** every file / command / git / search / edit operation is validated against the active project root. Path traversal (`../`), absolute paths outside the sandbox, and sensitive segments are rejected.
+- **Upload boundary:** upload targets are computed server-side; the frontend never decides the final path. `.env*`, `.git/`, `node_modules`, `__pycache__` and other sensitive entries are skipped.
+- **API key:** read only from `.env`, never from source code, and never committed.
+- **Agent scope:** the agent can only access files under the active project — nothing on your machine that you did not select.
 
-- **健康检查**：顶部徽章实时显示 API 服务与模型状态（`GET /health`）
-- **任务输入**：在文本框中输入编程任务，点击「运行 Agent」（或 `Cmd/Ctrl + Enter`）调用 `POST /v1/agent/run`
-- **执行过程**：按 Turn 折叠展示每轮推理（Thinking）、回复与工具调用明细（名称 / 参数 / 执行结果）
-- **最终结果**：展示完成状态、执行轮次、停止原因、自动修复次数、最终答案与运行日志路径
+## Supported OS / Browser
 
-页面为独立静态文件（`web/index.html`），已随 API Server 自动挂载，无需额外配置。
+- **OS:** macOS (primary test platform), Linux, Windows (path handling is portable via `pathlib`; not yet CI-tested on Windows/Linux).
+- **Browser:** any modern browser for full UI. Chrome / Edge additionally support **Open Folder** via File System Access API. Firefox / Safari can use **Upload Folder / Upload Files**.
 
-## 测试
+## Troubleshooting
 
-```bash
-source .venv/bin/activate
-python -m pytest tests/ -v
-```
+| Symptom | Likely cause / fix |
+|---|---|
+| `Model API Key Required` | `DEEPSEEK_API_KEY` is missing in `.env` — configure it, then restart. |
+| Page shows `Backend unavailable` | Server not running / wrong port. Start `python run.py` and open the printed URL. |
+| `Open Folder` button missing or no-op | Browser lacks File System Access API — use **Upload Folder**. |
+| Git shows `Not a Git repository` | The active project has no `.git` — that is fine; file explorer and agent still work. |
+| Port already in use | Set `PORT=0` (auto) or another free port; `run.py` prints the real URL. |
+| No project after refresh | Active project is a server-side runtime state; re-open or re-upload your project. |
 
-## Benchmark
+## Contributing
 
-```bash
-source .venv/bin/activate
-python benchmarks/benchmark.py
-```
+See [CONTRIBUTING.md](CONTRIBUTING.md). Please read [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) and report security issues via [SECURITY.md](SECURITY.md).
 
-## 安全边界
+## License
 
-- 文件操作强制限定在 `workspace/` 内，`../../` 逃逸会被拒绝（如 `../../etc/passwd`）
-- 命令黑名单：`rm`、`sudo`、`shutdown`、`reboot`、`mkfs`、`diskutil erase`、`git reset --hard`、`git clean -fd`、`git push --force` 等一律拒绝
-- 模型固定为 `deepseek-v4-flash`，模型不可用时停止并报告，绝不自行切换
-*（内容由AI生成，仅供参考）*
+Released under the [MIT License](LICENSE).
 *（内容由AI生成，仅供参考）*

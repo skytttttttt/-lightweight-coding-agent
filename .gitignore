@@ -25,3 +25,7 @@ workspace/*
 
 # OS
 .DS_Store
+
+# Benchmark run artifacts (generated, not source)
+benchmarks/results/
+benchmarks/results.json

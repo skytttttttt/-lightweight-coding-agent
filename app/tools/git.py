@@ -29,7 +29,17 @@ def _git(sandbox: Sandbox, args: list[str], timeout: int = 30) -> str:
 
 
 def git_diff(sandbox: Sandbox, path: str = "") -> str:
-    """查看工作区改动。"""
+    """查看工作区改动。
+
+    path 必须是 Project Root 内的相对路径；'..' 穿越 / Root 外绝对路径 / 敏感路径
+    在进入 git subprocess 之前由 Sandbox.resolve 拒绝。
+    """
+    if path:
+        try:
+            resolved = sandbox.resolve(path)
+            path = str(resolved.relative_to(sandbox.root))
+        except Exception as e:  # noqa: BLE001
+            return f"[error] {e}"
     args = ["diff"] + ([path] if path else [])
     return _git(sandbox, args)
 

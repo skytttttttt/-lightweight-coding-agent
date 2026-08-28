@@ -3,259 +3,409 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>V4-Flash Coding Agent</title>
-<style>
-  :root {
-    --bg: #0f1216;
-    --panel: #171b22;
-    --panel-2: #1e242e;
-    --border: #2a323e;
-    --text: #e6ebf2;
-    --muted: #8b96a5;
-    --accent: #4f8cff;
-    --accent-2: #22c55e;
-    --warn: #f59e0b;
-    --danger: #ef4444;
-    --code-bg: #0b0e13;
-    --radius: 12px;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-    background: var(--bg); color: var(--text); line-height: 1.6;
-    min-height: 100vh;
-  }
-  .container { max-width: 900px; margin: 0 auto; padding: 32px 20px 64px; }
-  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: 12px; }
-  header h1 { font-size: 22px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
-  .logo { width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(135deg, var(--accent), #7c5cff); display: inline-flex; align-items: center; justify-content: center; font-size: 15px; color: #fff; }
-  .health { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); background: var(--panel); border: 1px solid var(--border); padding: 6px 12px; border-radius: 999px; }
-  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
-  .dot.ok { background: var(--accent-2); box-shadow: 0 0 8px var(--accent-2); }
-  .dot.err { background: var(--danger); }
-  .dot.load { background: var(--warn); animation: pulse 1s infinite; }
-  @keyframes pulse { 50% { opacity: 0.3; } }
-  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; }
-  .panel h2 { font-size: 15px; font-weight: 600; margin-bottom: 14px; color: var(--text); }
-  textarea {
-    width: 100%; min-height: 96px; background: var(--code-bg); color: var(--text);
-    border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px;
-    resize: vertical; outline: none;
-  }
-  textarea:focus { border-color: var(--accent); }
-  .row { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
-  button {
-    background: var(--accent); color: #fff; border: none; border-radius: 8px;
-    padding: 10px 22px; font-size: 14px; font-weight: 600; cursor: pointer;
-    transition: opacity .15s, transform .05s;
-  }
-  button:hover { opacity: .9; }
-  button:active { transform: translateY(1px); }
-  button:disabled { opacity: .5; cursor: not-allowed; }
-  .hint { font-size: 12px; color: var(--muted); }
-  .spinner {
-    width: 15px; height: 15px; border: 2px solid var(--border); border-top-color: var(--accent);
-    border-radius: 50%; animation: spin .8s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
-  .stat { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; }
-  .stat .k { font-size: 12px; color: var(--muted); }
-  .stat .v { font-size: 15px; font-weight: 600; margin-top: 2px; word-break: break-all; }
-  .badge { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; }
-  .badge.ok { background: rgba(34,197,94,.15); color: var(--accent-2); }
-  .badge.bad { background: rgba(239,68,68,.15); color: var(--danger); }
-  .badge.warn { background: rgba(245,158,11,.15); color: var(--warn); }
-  .trace { display: flex; flex-direction: column; gap: 12px; }
-  .tcard { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--panel-2); }
-  .thead { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--panel); cursor: pointer; user-select: none; font-size: 13px; font-weight: 600; }
-  .thead .arrow { transition: transform .15s; font-size: 11px; color: var(--muted); }
-  .tcard.open .thead .arrow { transform: rotate(90deg); }
-  .tnum { color: var(--accent); }
-  .tbody { display: none; padding: 12px 14px; }
-  .tcard.open .tbody { display: block; }
-  .block { margin-bottom: 12px; }
-  .block:last-child { margin-bottom: 0; }
-  .block .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-bottom: 6px; font-weight: 600; }
-  pre {
-    background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
-    padding: 10px 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 12.5px; white-space: pre-wrap; word-break: break-word; color: var(--text); overflow-x: auto;
-  }
-  .tool { margin-bottom: 8px; }
-  .tool .tname { color: var(--accent-2); font-weight: 600; font-size: 13px; }
-  .tool .targs { color: var(--muted); font-size: 12px; font-family: ui-monospace, Menlo, monospace; word-break: break-all; }
-  .res { color: var(--warn); font-size: 12px; white-space: pre-wrap; word-break: break-word; }
-  .final { background: linear-gradient(135deg, rgba(79,140,255,.08), rgba(124,92,255,.08)); border: 1px solid var(--accent); }
-  .final .lbl { color: var(--accent); }
-  .error { border: 1px solid var(--danger); }
-  .error .lbl { color: var(--danger); }
-  .muted { font-size: 12px; color: var(--muted); word-break: break-all; }
-  .empty { color: var(--muted); font-size: 14px; text-align: center; padding: 24px 0; }
-</style>
+<meta name="color-scheme" content="dark" />
+<title>V4-Flash Coding Workspace</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%23080A0F'/%3E%3Cpath d='M12 4l6 3.5v4.3c0 3.9-2.6 7-6 7.7-3.4-.7-6-3.8-6-7.7V7.5L12 4z' fill='none' stroke='%235FB8C8' stroke-width='1.4'/%3E%3Cpath d='M9.2 12l2 2 3.6-3.6' fill='none' stroke='%235FB8C8' stroke-width='1.4'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
-<div class="container">
-  <header>
-    <h1><span class="logo">V4</span> V4-Flash Coding Agent</h1>
-    <div class="health" id="health">
-      <span class="dot" id="healthDot"></span>
-      <span id="healthText">检测中…</span>
-    </div>
-  </header>
-
-  <div class="panel">
-    <h2>编程任务</h2>
-    <textarea id="task" placeholder="例如：在 workspace 目录中创建一个 Python 脚本 hello.py，打印「Hello, V4-Flash!」，并运行测试验证。"></textarea>
-    <div class="row">
-      <button id="runBtn">运行 Agent</button>
-      <div class="spinner" id="spinner" style="display:none;"></div>
-      <span class="hint" id="runHint"></span>
-    </div>
+  <!-- 极微弱 ambient 计算背景：光场 + 细网格 + 缓慢位移（40s 级） -->
+  <div class="bg-field" aria-hidden="true">
+    <div class="bg-glow glow-a"></div>
+    <div class="bg-glow glow-b"></div>
+    <div class="bg-grid"></div>
   </div>
 
-  <div class="panel" id="resultPanel" style="display:none;">
-    <h2>执行结果</h2>
-    <div class="summary" id="summary"></div>
-    <div class="block">
-      <div class="lbl">最终答案</div>
-      <pre class="final" id="finalAnswer"></pre>
-    </div>
-    <div class="block" id="errorBlock" style="display:none;">
-      <div class="lbl">错误信息</div>
-      <pre class="error" id="errorMsg"></pre>
-    </div>
-    <div class="block">
-      <div class="lbl">执行轨迹（点击展开）</div>
-      <div class="trace" id="trace"></div>
-    </div>
-    <div class="block">
-      <div class="lbl">运行日志</div>
-      <div class="muted" id="logPath"></div>
-    </div>
-  </div>
-</div>
+  <div class="workspace-shell">
 
-<script>
-const $ = (id) => document.getElementById(id);
-
-async function checkHealth() {
-  const dot = $("healthDot"), txt = $("healthText");
-  dot.className = "dot load";
-  try {
-    const r = await fetch("/health", { cache: "no-store" });
-    const data = await r.json();
-    if (r.ok && data.status === "ok") {
-      dot.className = "dot ok";
-      txt.textContent = "服务正常 · " + (data.model || "deepseek-v4-flash");
-    } else {
-      dot.className = "dot err";
-      txt.textContent = "服务异常";
-    }
-  } catch (e) {
-    dot.className = "dot err";
-    txt.textContent = "无法连接 API 服务";
-  }
-}
-
-function esc(s) {
-  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function renderTrace(trace) {
-  const wrap = $("trace");
-  if (!trace || !trace.length) {
-    wrap.innerHTML = '<div class="empty">无执行轨迹</div>';
-    return;
-  }
-  wrap.innerHTML = trace.map((t, idx) => {
-    const reasoning = t.reasoning ? `
-      <div class="block"><div class="lbl">推理 / Thinking</div><pre>${esc(t.reasoning)}</pre></div>` : "";
-    const content = t.content ? `
-      <div class="block"><div class="lbl">回复</div><pre>${esc(t.content)}</pre></div>` : "";
-    const calls = (t.tool_calls || []).map(c => `
-      <div class="tool"><span class="tname">▶ ${esc(c.name)}</span>
-      <div class="targs">${esc(c.arguments)}</div></div>`).join("");
-    const results = (t.tool_results || []).map(tr => `
-      <div class="tool"><span class="tname">${esc(tr.name)} →</span>
-      <pre class="res">${esc(tr.output)}</pre></div>`).join("");
-    const tools = (calls || results) ? `
-      <div class="block"><div class="lbl">工具调用</div>${calls}${results}</div>` : "";
-    return `
-      <div class="tcard${idx === 0 ? " open" : ""}" id="tc${idx}">
-        <div class="thead" onclick="document.getElementById('tc${idx}').classList.toggle('open')">
-          <span class="arrow">▶</span><span class="tnum">Turn ${t.turn}</span>
-          ${t.tool_calls && t.tool_calls.length ? `<span class="badge warn">${t.tool_calls.length} 工具</span>` : '<span class="badge ok">完成</span>'}
+    <!-- ============ TOP BAR ============ -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="brand-mark" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M12 3l7 4v5c0 4.5-3 8.2-7 9-4-.8-7-4.5-7-9V7l7-4z"/>
+            <path d="M9 12l2 2 4-4"/>
+          </svg>
         </div>
-        <div class="tbody">${reasoning}${content}${tools}</div>
-      </div>`;
-  }).join("");
-}
+        <div class="brand-text">
+          <span class="brand-name">V4-FLASH</span>
+          <span class="brand-sub">CODING WORKSPACE</span>
+        </div>
+        <div class="topbar-divider"></div>
+        <div class="current-task" id="topTaskTitle" title="当前任务">
+          <span class="current-task-label">TASK</span>
+          <span class="current-task-name" id="topTaskName">No task selected</span>
+        </div>
+      </div>
 
-async function run() {
-  const task = $("task").value.trim();
-  if (!task) { alert("请输入任务描述"); return; }
-  const btn = $("runBtn"), spinner = $("spinner");
-  btn.disabled = true; spinner.style.display = "inline-block";
-  $("runHint").textContent = "Agent 正在执行，请稍候…";
-  $("resultPanel").style.display = "none";
-  try {
-    const r = await fetch("/v1/agent/run", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ task }),
-    });
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) {
-      $("resultPanel").style.display = "block";
-      $("summary").innerHTML = `<div class="stat"><div class="k">状态</div><div class="v"><span class="badge bad">请求失败</span></div></div>`;
-      $("finalAnswer").textContent = "";
-      $("errorMsg").textContent = data.detail || ("HTTP " + r.status);
-      $("errorBlock").style.display = "block";
-      $("trace").innerHTML = '<div class="empty">无执行轨迹</div>';
-      $("logPath").textContent = "";
-    } else {
-      renderResult(data);
-    }
-  } catch (e) {
-    $("resultPanel").style.display = "block";
-    $("summary").innerHTML = `<div class="stat"><div class="k">状态</div><div class="v"><span class="badge bad">网络错误</span></div></div>`;
-    $("finalAnswer").textContent = "";
-    $("errorMsg").textContent = String(e);
-    $("errorBlock").style.display = "block";
-    $("trace").innerHTML = '<div class="empty">无执行轨迹</div>';
-    $("logPath").textContent = "";
-  } finally {
-    btn.disabled = false; spinner.style.display = "none";
-    $("runHint").textContent = "";
-  }
-}
+      <div class="topbar-right">
+        <div class="health" id="health" title="API 服务状态">
+          <span class="health-dot" id="healthDot"></span>
+          <span class="health-text" id="healthText">检测中…</span>
+        </div>
+        <button class="icon-btn" id="newTaskBtn" title="新建任务">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+      </div>
+    </header>
 
-function renderResult(d) {
-  $("resultPanel").style.display = "block";
-  const badge = d.completed
-    ? '<span class="badge ok">完成</span>'
-    : d.stopped_by === "repair_limit"
-      ? '<span class="badge bad">修复失败</span>'
-      : '<span class="badge warn">' + esc(d.stopped_by) + '</span>';
-  $("summary").innerHTML = `
-    <div class="stat"><div class="k">状态</div><div class="v">${badge}</div></div>
-    <div class="stat"><div class="k">执行轮次</div><div class="v">${d.turns_used}</div></div>
-    <div class="stat"><div class="k">停止原因</div><div class="v">${esc(d.stopped_by)}</div></div>
-    <div class="stat"><div class="k">自动修复</div><div class="v">${d.repair_attempts}</div></div>`;
-  $("finalAnswer").textContent = d.final_answer || "(无内容)";
-  $("errorMsg").textContent = d.error || "";
-  $("errorBlock").style.display = d.error ? "block" : "none";
-  renderTrace(d.trace);
-  $("logPath").textContent = d.log_path || "";
-}
+    <div class="app-body">
 
-$("runBtn").addEventListener("click", run);
-$("task").addEventListener("keydown", (e) => {
-  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") run();
-});
-checkHealth();
-</script>
+      <!-- ============ LEFT: WORKSPACE / AGENTS / SESSIONS ============ -->
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-scroll">
+
+          <section class="side-section" id="sideProject">
+            <div class="side-section-head">
+              <span class="side-section-title">PROJECT</span>
+              <span class="side-section-badge" id="projectBadge">—</span>
+            </div>
+            <div class="side-toolbar">
+              <button class="side-btn" id="uploadBtn" title="上传文件（可多选）" aria-label="上传文件（可多选）">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+                <span>Upload</span>
+              </button>
+              <button class="side-btn" id="folderBtn" title="上传文件夹（保留目录结构）" aria-label="上传文件夹（保留目录结构）">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><path d="M12 11v5M9.5 13.5h5"/></svg>
+                <span>Folder</span>
+              </button>
+              <button class="side-btn" id="searchBtn" title="Coming soon" aria-label="搜索（即将推出）" disabled>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                <span>Search</span>
+              </button>
+            </div>
+            <input type="file" id="fileInput" hidden multiple
+                   accept=".txt,.md,.py,.js,.ts,.json,.csv,.log,.yml,.yaml,.toml,.ini,.cfg,.sh,.html,.css,.xml" />
+            <input type="file" id="folderInput" hidden webkitdirectory directory />
+            <div class="file-tree" id="fileTree">
+              <div class="tree-empty">加载中…</div>
+            </div>
+          </section>
+
+          <section class="side-section" id="sideAgents">
+            <div class="side-section-head">
+              <span class="side-section-title">AGENTS</span>
+              <span class="side-section-note">1</span>
+            </div>
+            <div class="agent-card" id="agentCard">
+              <div class="agent-card-head">
+                <div class="agent-card-avatar" id="agentCardAvatar">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3l7 4v5c0 4.5-3 8.2-7 9-4-.8-7-4.5-7-9V7l7-4z"/><path d="M9 12l2 2 4-4"/></svg>
+                </div>
+                <div class="agent-card-id">
+                  <div class="agent-card-name">v4-flash</div>
+                  <div class="agent-card-model" id="agentModel">deepseek-v4-flash</div>
+                </div>
+                <div class="agent-state-badge" id="sideAgentState" data-state="idle">
+                  <span class="state-dot"></span>
+                  <span class="state-label">Idle</span>
+                </div>
+              </div>
+              <div class="agent-card-meta">
+                <span id="sideTurnCounter">—</span>
+                <span id="sideElapsed">—</span>
+              </div>
+            </div>
+            <div class="side-empty" id="agentHistoryEmpty">No agent history</div>
+          </section>
+
+          <section class="side-section" id="sideSessions">
+            <div class="side-section-head">
+              <span class="side-section-title">SESSIONS</span>
+              <span class="side-section-note" id="sessionCount">0</span>
+            </div>
+            <div class="session-list" id="sessionList">
+              <div class="tree-empty">暂无历史会话</div>
+            </div>
+          </section>
+
+        </div>
+        <button class="sidebar-collapse" id="sidebarCollapse" title="收起侧栏" aria-label="收起/展开侧栏" type="button">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15 6l-6 6 6 6"/></svg>
+        </button>
+      </aside>
+
+      <!-- ============ CENTER: MAIN TASK SPACE ============ -->
+      <main class="task-space">
+        <!-- Agent Status -->
+        <div class="task-statusbar" id="taskStatusBar">
+          <div class="task-status-left">
+            <div class="agent-state-badge lg" id="mainStateBadge" data-state="idle">
+              <span class="state-dot"></span>
+              <span class="state-label">Idle</span>
+            </div>
+            <span class="task-status-divider"></span>
+            <span class="task-turn" id="mainTurnCounter">—</span>
+            <span class="task-elapsed" id="mainElapsed">—</span>
+          </div>
+          <div class="task-status-right">
+            <button class="control-btn" id="pauseBtn" disabled title="暂停（即将推出）" aria-label="暂停">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+            </button>
+            <button class="control-btn" id="stopBtn" disabled title="停止当前运行" aria-label="停止当前运行">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Plan -->
+        <div class="plan-panel" id="planPanel" hidden>
+          <div class="plan-head">
+            <span class="plan-title">TASK PLAN</span>
+            <span class="plan-count" id="planCount">0 steps</span>
+          </div>
+          <div class="plan-list" id="planList"></div>
+        </div>
+
+        <!-- Conversation / Tool Activity / Result -->
+        <div class="workspace-scroll" id="workspaceScroll">
+          <div class="welcome" id="welcome">
+            <div class="welcome-mark" aria-hidden="true">
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                <path d="M12 3l7 4v5c0 4.5-3 8.2-7 9-4-.8-7-4.5-7-9V7l7-4z"/>
+                <path d="M9 12l2 2 4-4"/>
+                <circle cx="12" cy="12" r="10" stroke-dasharray="2 3"/>
+              </svg>
+            </div>
+            <h2 class="welcome-title">BUILD SOMETHING REAL.</h2>
+            <p class="welcome-sub">Your workspace is ready. Describe an engineering task below and hand it to the agent.</p>
+            <div class="welcome-actions">
+              <button class="welcome-action" id="welcomeNewTaskAction">
+                <span class="action-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"/></svg></span>
+                New Task
+              </button>
+              <button class="welcome-action" id="openProjectAction">
+                <span class="action-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg></span>
+                Open Project
+              </button>
+              <button class="welcome-action" id="recentAction">
+                <span class="action-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3v5h5"/><path d="M3.05 13a9 9 0 102.9-7.7L3 8"/><path d="M12 7v5l3 3"/></svg></span>
+                Recent Sessions
+              </button>
+            </div>
+          </div>
+          <div class="timeline" id="timeline"></div>
+        </div>
+      </main>
+
+      <!-- ============ RIGHT: CONTEXT / CHANGES / CHECKS ============ -->
+      <aside class="context-panel" id="contextPanel">
+        <div class="context-tabs" role="tablist">
+          <button class="context-tab active" data-tab="context" id="tab-context" role="tab" aria-selected="true" aria-controls="view-context">Context</button>
+          <button class="context-tab" data-tab="changes" id="tab-changes" role="tab" aria-selected="false" aria-controls="view-changes">Changes</button>
+          <button class="context-tab" data-tab="checks" id="tab-checks" role="tab" aria-selected="false" aria-controls="view-checks">Checks</button>
+        </div>
+
+        <!-- Context -->
+        <div class="context-view active" id="view-context" data-view="context" role="tabpanel" aria-labelledby="tab-context">
+          <div class="ctx-block">
+            <div class="ctx-label">Current Task</div>
+            <div class="ctx-value" id="ctxTask">No task running</div>
+            <div class="ctx-meta" id="ctxTime">—</div>
+          </div>
+          <div class="ctx-block">
+            <div class="ctx-label">Agent State</div>
+            <div class="ctx-state" id="ctxState">
+              <span class="state-dot"></span>
+              <span class="ctx-state-label">Idle</span>
+            </div>
+          </div>
+          <div class="ctx-block">
+            <div class="ctx-label">Environment</div>
+            <div class="ctx-env">
+              <div class="env-row"><span>model</span><code id="envModel">—</code></div>
+              <div class="env-row"><span>project</span><code id="envProject">—</code></div>
+              <div class="env-row"><span>log</span><code id="envLog">—</code></div>
+            </div>
+          </div>
+          <div class="ctx-block">
+            <div class="ctx-label">File Context</div>
+            <div class="ctx-filelist" id="ctxFiles"><span class="ctx-muted">Agent 操作过的文件将显示在这里</span></div>
+          </div>
+        </div>
+
+        <!-- Changes -->
+        <div class="context-view" id="view-changes" data-view="changes" role="tabpanel" aria-labelledby="tab-changes">
+          <div class="ctx-block">
+            <div class="ctx-label-row">
+              <span class="ctx-label">Changed Files</span>
+              <span class="ctx-badge" id="gitChangedCount">—</span>
+              <button class="ctx-refresh" id="gitRefresh" title="刷新 git 状态">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 12a9 9 0 11-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
+              </button>
+            </div>
+            <div class="git-source-note">来源：<code>git status --short</code>（真实数据）</div>
+            <div class="change-list" id="changeList"><div class="ctx-muted">加载 git 状态…</div></div>
+          </div>
+          <div class="ctx-block diff-block" id="diffBlock" hidden>
+            <div class="ctx-label-row">
+              <span class="ctx-label">Diff</span>
+              <span class="ctx-badge diff-stats" id="diffStats"></span>
+              <button class="ctx-refresh" id="diffClose" title="关闭" aria-label="关闭 diff">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div class="diff-file-name" id="diffFileName">—</div>
+            <pre class="diff-view" id="diffView"></pre>
+          </div>
+        </div>
+
+        <!-- Checks -->
+        <div class="context-view" id="view-checks" data-view="checks" role="tabpanel" aria-labelledby="tab-checks">
+          <div class="checks-list" id="checksList"></div>
+          <div class="ctx-block">
+            <div class="ctx-label-row">
+              <span class="ctx-label">Output Detail</span>
+            </div>
+            <pre class="checks-detail" id="checksDetail">选择上方的检查项查看输出。</pre>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- ============ COMMAND BAR ============ -->
+    <footer class="command-bar" id="commandBar">
+      <div class="command-bar-inner">
+        <div class="cmd-left">
+          <button class="cmd-btn" id="attachBtn" title="Attach files（Coming soon）" aria-label="Attach files（即将推出）" disabled>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+          </button>
+          <button class="cmd-btn" id="contextBtn" title="选择上下文（Coming soon）" aria-label="选择上下文（即将推出）" disabled>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+          </button>
+          <span class="cmd-divider"></span>
+          <span class="cmd-model" id="cmdModel">v4-flash</span>
+          <span class="cmd-state" id="cmdState" data-state="idle">Idle</span>
+        </div>
+        <div class="cmd-input-wrap">
+          <textarea
+            id="taskInput"
+            placeholder="Describe what you want to build…"
+            rows="1"
+            autocomplete="off"
+            spellcheck="false"
+          ></textarea>
+        </div>
+        <div class="cmd-right">
+          <button class="cmd-run" id="runBtn">
+            <span class="run-text">Run</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 3l14 9-14 9V3z"/></svg>
+          </button>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- 长按 / 右键删除菜单（文件树节点） -->
+  <div class="ctx-menu" id="ctxMenu" role="menu" hidden>
+    <div class="ctx-path" id="ctxPath" role="presentation"></div>
+    <button class="ctx-item" id="ctxDelete" role="menuitem" type="button" aria-label="删除选中文件或文件夹">删除</button>
+  </div>
+
+  <!-- 全局状态条：API Offline / Connection interrupted + Retry -->
+  <div class="global-banner" id="globalBanner" hidden>
+    <span class="banner-icon" id="bannerIcon">!</span>
+    <span class="banner-text" id="bannerText"></span>
+    <span class="banner-spacer"></span>
+    <button class="banner-btn" id="bannerRetry" hidden>Retry</button>
+    <button class="banner-btn banner-close" id="bannerClose" aria-label="关闭">✕</button>
+  </div>
+
+  <!-- 文件预览 Modal -->
+  <div class="file-preview-overlay" id="filePreview" hidden>
+    <div class="file-preview" role="dialog" aria-modal="true" aria-label="文件预览">
+      <div class="fp-head">
+        <span class="fp-path" id="fpPath">—</span>
+        <span class="fp-meta" id="fpMeta"></span>
+        <span class="fp-spacer"></span>
+        <button class="fp-btn" id="fpCopy" title="复制内容" aria-label="复制文件内容">Copy</button>
+        <button class="fp-btn" id="fpClose" title="关闭（Esc）" aria-label="关闭文件预览">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="fp-body" id="fpBody">
+        <div class="fp-empty">加载中…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Open Project 选择弹层（打开文件 / 打开文件夹 → Project Root） -->
+  <div class="upload-overlay" id="openProjectModal" hidden>
+    <div class="open-project-panel" role="dialog" aria-modal="true" aria-label="打开项目">
+      <div class="up-head">
+        <span class="up-title">OPEN PROJECT</span>
+        <span class="up-path" id="opRootPath">—</span>
+        <span class="up-spacer"></span>
+        <button class="fp-btn" id="opClose" title="关闭（Esc）" aria-label="关闭打开项目弹层">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="op-body">
+        <button class="op-option" id="opFolder" type="button">
+          <span class="op-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>
+          </span>
+          <span class="op-text">
+            <span class="op-label">Open Folder</span>
+            <span class="op-desc">选择文件夹作为项目根目录，真实上传并建立/切换 Project Root，File Explorer / Agent / Git 三端同源更新</span>
+          </span>
+          <span class="op-arrow">→</span>
+        </button>
+        <button class="op-option" id="opFile" type="button">
+          <span class="op-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z"/><path d="M14 3v5h5"/></svg>
+          </span>
+          <span class="op-text">
+            <span class="op-label">Open File</span>
+            <span class="op-desc">选择单个文件真实导入当前项目（已有激活项目则加入其中，无激活项目则自动建立默认项目）</span>
+          </span>
+          <span class="op-arrow">→</span>
+        </button>
+      </div>
+      <div class="op-foot">
+        <span class="op-hint">打开后将走真实上传链路，完成后三端联动刷新 · 按 Esc 取消</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 上传面板 Modal（文件 / 文件夹 → Project Root） -->
+  <div class="upload-overlay" id="uploadModal" hidden>
+    <div class="upload-panel" role="dialog" aria-modal="true" aria-label="上传文件到项目">
+      <div class="up-head">
+        <span class="up-title">ADD TO PROJECT</span>
+        <span class="up-path" id="upRootPath">—</span>
+        <span class="up-spacer"></span>
+        <button class="fp-btn" id="upClose" title="关闭（Esc）" aria-label="关闭上传面板">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="up-summary" id="upSummary">—</div>
+      <div class="up-progress">
+        <div class="up-progress-track"><div class="up-progress-bar" id="upProgressBar"></div></div>
+        <span class="up-progress-text" id="upProgressText"></span>
+      </div>
+      <div class="up-body" id="upBody">
+        <div class="up-empty">准备中…</div>
+      </div>
+      <div class="up-conflict" id="upConflict" hidden>
+        <div class="up-conflict-msg" id="upConflictMsg"></div>
+        <div class="up-conflict-actions">
+          <button class="fp-btn" id="upReplace">Replace All</button>
+          <button class="fp-btn" id="upSkip">Skip</button>
+          <button class="fp-btn" id="upCancelConflict">Cancel</button>
+        </div>
+      </div>
+      <div class="up-foot">
+        <span class="up-hint">支持拖入文件 / 文件夹（保留目录结构）</span>
+        <span class="up-spacer"></span>
+        <button class="fp-btn" id="upCancel">Cancel</button>
+        <button class="cmd-run up-run" id="upUpload">Upload</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
 </body>
 </html>

@@ -72,15 +72,95 @@ class Sandbox:
         if name in DANGEROUS_COMMANDS or any(
             name.startswith(f"{d}.") for d in DANGEROUS_COMMANDS if d != "git"
         ):
-            # git 特判：仅部分子命令禁止
+            # git 特判：危险子命令 + Git 路径参数（-C / --git-dir / --work-tree 等）必须
+            # 在进入 subprocess 之前完成 Project Root 边界校验，禁止参数级路径绕过
             if name == "git":
                 if len(tokens) >= 2 and tokens[1] in GIT_DANGEROUS_SUBCOMMANDS:
                     raise SandboxError(
                         f"危险命令被拒绝: {base} {tokens[1]}（禁止破坏性 git 操作）"
                     )
+                self._validate_git_args(tokens)
                 return cmd
             raise SandboxError(f"危险命令被拒绝: {base}")
         return cmd
+
+    # ---------- Git 路径参数校验 ----------
+    # git 中可携带"仓库/工作树/工作目录"路径语义的参数（-= 前缀；<value> 取等号后或下一 token）
+    _GIT_PATH_OPTIONS = {
+        "-C", "--directory",            # 切换 git 工作目录（支持相对/绝对路径）
+        "--git-dir", "--absolute-git-dir",  # 指定 .git 目录
+        "--work-tree",                  # 指定工作树
+    }
+    # `-c key=value` 中携带路径语义的配置键（core.worktree / core.gitdir 等）
+    _GIT_CONFIG_PATH_KEYS = ("core.worktree", "core.gitdir")
+
+    def _validate_git_path(self, value: str, where: str) -> None:
+        """校验单个 git 路径参数值：禁止 '..' 穿越、shell 展开与 Project Root 外绝对路径。"""
+        v = value.strip().strip('"').strip("'")
+        if not v or v == "=":
+            return
+        if v.startswith("~") or "$" in v:
+            raise SandboxError(
+                f"git 路径参数被拒绝: {value!r}（{where} 不允许 shell 展开/变量）"
+            )
+        # 拒绝显式 '..' 路径穿越（无论最终是否落在 Root 内，显式 .. 一律视为越界尝试）
+        if ".." in v.split("/") or "\\.." in v or "..\\" in v:
+            raise SandboxError(
+                f"git 路径参数被拒绝: {value!r}（{where} 不允许 '..' 路径穿越）"
+            )
+        # 绝对路径必须解析后位于 Project Root 内（复用 resolve 的敏感段保护）
+        if v.startswith("/"):
+            try:
+                self.resolve(v)
+            except SandboxError as e:
+                raise SandboxError(
+                    f"git 路径参数被拒绝: {value!r}（{where} {e}）"
+                )
+
+    def _validate_git_args(self, tokens: list[str]) -> None:
+        """校验 git 命令的全部参数级路径语义（-C / --git-dir / --work-tree / -c 配置）。
+
+        目标：Git 路径参数绕过 Project Root 的通用问题，不针对单一 Case。
+        拒绝必须发生在进入 git subprocess 之前（本方法在 check_command 内调用）。
+        """
+        i = 1
+        n = len(tokens)
+        while i < n:
+            tok = tokens[i]
+            # 选项（以 - 开头）
+            if tok.startswith("-") and tok != "--":
+                if tok == "-c":
+                    # -c key=value：仅校验含路径语义的配置键
+                    if i + 1 < n and "=" in tokens[i + 1]:
+                        key, _, val = tokens[i + 1].partition("=")
+                        if any(k in key.lower() for k in ("worktree", "gitdir", ".dir")):
+                            self._validate_git_path(val, f"-c {key}")
+                    i += 2
+                    continue
+                # 形如 --opt=value
+                if "=" in tok:
+                    key, _, val = tok.partition("=")
+                    if key in self._GIT_PATH_OPTIONS:
+                        self._validate_git_path(val, key)
+                    i += 1
+                    continue
+                # 形如 -C value / --git-dir value / --work-tree value
+                if tok in self._GIT_PATH_OPTIONS:
+                    if i + 1 < n:
+                        self._validate_git_path(tokens[i + 1], tok)
+                    i += 2
+                    continue
+                # 其余选项不携带路径语义，跳过
+                i += 1
+                continue
+            # 位置参数：子命令名/路径。仅当含 '..' 或为绝对路径时才做边界校验，
+            # 其余（src/x.py、. 等合法相对路径）保持可用
+            if tok == "--":
+                i += 1
+                continue
+            if ".." in tok.split("/") or tok.startswith("/"):
+                self._validate_git_path(tok, "路径参数")
+            i += 1
 
 
 def default_sandbox() -> Sandbox:
